@@ -3,31 +3,30 @@ package typesenseapi
 import (
 	"context"
 	"errors"
-
+	typesense2 "github.com/foomo/typesense/pkg"
 	"github.com/typesense/typesense-go/v3/typesense"
-	"go.uber.org/zap"
-
 	"github.com/typesense/typesense-go/v3/typesense/api"
+	"go.uber.org/zap"
 )
 
 const defaultSearchPresetName = "default"
 
-type BaseAPI[indexDocument any, returnDocument any] struct {
+type BaseAPI[indexDocument any, returnType any] struct {
 	l           *zap.Logger
 	client      *typesense.Client
-	collections map[IndexID]*api.CollectionSchema
+	collections map[typesense2.IndexID]*api.CollectionSchema
 	preset      *api.PresetUpsertSchema
 
-	revisionID RevisionID
+	revisionID typesense2.RevisionID
 }
 
-func NewBaseAPI[indexDocument any, returnDocument any](
+func NewBaseAPI[indexDocument any, returnType any](
 	l *zap.Logger,
 	client *typesense.Client,
-	collections map[IndexID]*api.CollectionSchema,
+	collections map[typesense2.IndexID]*api.CollectionSchema,
 	preset *api.PresetUpsertSchema,
-) *BaseAPI[indexDocument, returnDocument] {
-	return &BaseAPI[indexDocument, returnDocument]{
+) *BaseAPI[indexDocument, returnType] {
+	return &BaseAPI[indexDocument, returnType]{
 		l:           l,
 		client:      client,
 		collections: collections,
@@ -36,11 +35,23 @@ func NewBaseAPI[indexDocument any, returnDocument any](
 }
 
 // Healthz will check if the revisionID is set
-func (b *BaseAPI[indexDocument, returnDocument]) Healthz(_ context.Context) error {
+func (b *BaseAPI[indexDocument, returnType]) Healthz(_ context.Context) error {
 	if b.revisionID == "" {
 		return errors.New("revisionID not set")
 	}
 	return nil
+}
+
+// Healthz will check if the revisionID is set
+func (b *BaseAPI[indexDocument, returnType]) Indices() ([]typesense2.IndexID, error) {
+	if len(b.collections) == 0 {
+		return nil, errors.New("no collections configured")
+	}
+	indices := make([]typesense2.IndexID, 0, len(b.collections))
+	for index := range b.collections {
+		indices = append(indices, index)
+	}
+	return indices, nil
 }
 
 // Initialize
@@ -67,16 +78,16 @@ func (b *BaseAPI[indexDocument, returnDocument]) Healthz(_ context.Context) erro
 // Additionally, make sure that the configured search preset is present
 // The system is ok if there is one alias for each collection and the collections are linked to the correct alias
 // The function will set the revisionID that is currently linked to the aliases internally
-func (b *BaseAPI[indexDocument, returnDocument]) Initialize() error {
-	var revisionID RevisionID
+func (b *BaseAPI[indexDocument, returnType]) Initialize() (typesense2.RevisionID, error) {
+	var revisionID typesense2.RevisionID
 	// use b.client.Health() to check the connection
 
 	b.revisionID = revisionID
-	return nil
+	return "", nil
 }
 
-func (b *BaseAPI[indexDocument, returnDocument]) NewRevision() (RevisionID, error) {
-	var revision RevisionID
+func (b *BaseAPI[indexDocument, returnType]) NewRevision() (typesense2.RevisionID, error) {
+	var revision typesense2.RevisionID
 
 	// create a revisionID based on the current time "YYYY-MM-DD-HH"
 
@@ -85,9 +96,9 @@ func (b *BaseAPI[indexDocument, returnDocument]) NewRevision() (RevisionID, erro
 	return revision, nil
 }
 
-func (b *BaseAPI[indexDocument, returnDocument]) UpsertDocuments(
-	revisionID RevisionID,
-	indexID IndexID,
+func (b *BaseAPI[indexDocument, returnType]) UpsertDocuments(
+	revisionID typesense2.RevisionID,
+	indexID typesense2.IndexID,
 	documents []indexDocument,
 ) error {
 	// use api to upsert documents
@@ -98,24 +109,29 @@ func (b *BaseAPI[indexDocument, returnDocument]) UpsertDocuments(
 // it will update the aliases to point to the new revision
 // additionally it will remove all old collections that are not linked to an alias
 // keeping only the latest revision and the one before
-func (b *BaseAPI[indexDocument, returnDocument]) CommitRevision(revisionID RevisionID) error {
+func (b *BaseAPI[indexDocument, returnType]) CommitRevision(revisionID typesense2.RevisionID) error {
+	return nil
+}
+
+// RevertRevision will remove the collections created for the given revisionID
+func (b *BaseAPI[indexDocument, returnType]) RevertRevision(revisionID typesense2.RevisionID) error {
 	return nil
 }
 
 // SimpleSearch will perform a search operation on the given index
 // it will return the documents and the scores
-func (b *BaseAPI[indexDocument, returnDocument]) SimpleSearch(
-	index IndexID,
+func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
+	index typesense2.IndexID,
 	q string,
 	filterBy map[string]string,
 	page, perPage int,
 	sortBy string,
-) ([]returnDocument, Scores, error) {
+) ([]returnType, typesense2.Scores, error) {
 	return b.ExpertSearch(index, getSearchCollectionParameters(q, filterBy, page, perPage, sortBy))
 }
 
 // ExpertSearch will perform a search operation on the given index
 // it will return the documents and the scores
-func (b *BaseAPI[indexDocument, returnDocument]) ExpertSearch(index IndexID, parameters *api.SearchCollectionParams) ([]returnDocument, Scores, error) {
+func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(index typesense2.IndexID, parameters *api.SearchCollectionParams) ([]returnType, typesense2.Scores, error) {
 	return nil, nil, nil
 }

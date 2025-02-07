@@ -1,0 +1,107 @@
+package typesenseindexing
+
+import (
+	"context"
+	"fmt"
+	"github.com/foomo/contentserver/client"
+	"github.com/foomo/contentserver/content"
+	typesense "github.com/foomo/typesense/pkg"
+	"go.uber.org/zap"
+)
+
+type ContentServer[indexDocument any] struct {
+	l                     *zap.Logger
+	client                *client.Client
+	documentProviderFuncs map[typesense.DocumentType]typesense.DocumentProviderFunc[indexDocument]
+}
+
+func NewContentServer[indexDocument any](
+	l *zap.Logger,
+	client *client.Client,
+	documentProviderFuncs map[typesense.DocumentType]typesense.DocumentProviderFunc[indexDocument],
+) *ContentServer[indexDocument] {
+	return &ContentServer[indexDocument]{
+		l:                     l,
+		client:                client,
+		documentProviderFuncs: documentProviderFuncs,
+	}
+}
+
+func (c ContentServer[indexDocument]) Provide(
+	ctx context.Context,
+	indexID typesense.IndexID,
+) ([]indexDocument, error) {
+	documentInfos, err := c.getDocumentIDsByIndexID(ctx, indexID)
+	if err != nil {
+		return nil, err
+	}
+	documents := make([]indexDocument, len(documentInfos))
+	for index, documentInfo := range documentInfos {
+		if documentProvider, ok := c.documentProviderFuncs[documentInfo.DocumentType]; !ok {
+			c.l.Warn("no document provider available for document type", zap.String("documentType", string(documentInfo.DocumentType)))
+		} else {
+			document, err := documentProvider(ctx, indexID, documentInfo.DocumentID)
+			if err != nil {
+				c.l.Error(
+					"index document not created",
+					zap.Error(err),
+					zap.String("documentID", string(documentInfo.DocumentID)),
+					zap.String("documentType", string(documentInfo.DocumentType)),
+				)
+				continue
+			}
+			documents[index] = document
+		}
+	}
+	return documents, nil
+}
+
+func (c ContentServer[indexDocument]) ProvidePaged(
+	ctx context.Context,
+	indexID typesense.IndexID,
+	offset int,
+) ([]indexDocument, int, error) {
+	panic("implement me")
+	return nil, 0, nil
+}
+
+func (c ContentServer[indexDocument]) getDocumentIDsByIndexID(
+	ctx context.Context,
+	indexID typesense.IndexID,
+) ([]typesense.DocumentInfo, error) {
+	// get the contentserver dimension defined by indexID
+	// create the list of document infos
+	repo, err := c.client.GetRepo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rootRepoNode, ok := repo[string(indexID)]
+	if !ok {
+		return nil, fmt.Errorf("contenserver dimension %s not found", indexID)
+	}
+
+	nodeMap := createFlatRepoNodeMap(rootRepoNode, map[string]*content.RepoNode{})
+	documentInfos := make([]typesense.DocumentInfo, 0, len(nodeMap))
+	for _, repoNode := range nodeMap {
+		documentInfos = append(documentInfos, typesense.DocumentInfo{
+			DocumentType: typesense.DocumentType(repoNode.MimeType),
+			DocumentID:   typesense.DocumentID(repoNode.ID),
+		})
+	}
+
+	return documentInfos, nil
+}
+
+// createFlatRepoNodeMap recursively retrieves all nodes from the tree and returns them in a flat map.
+func createFlatRepoNodeMap(node *content.RepoNode, nodeMap map[string]*content.RepoNode) map[string]*content.RepoNode {
+	if node == nil {
+		return nodeMap
+	}
+	// Add the current node to the list.
+	nodeMap[node.ID] = node
+	// Recursively process child nodes.
+	for _, child := range node.Nodes {
+		nodeMap = createFlatRepoNodeMap(child, nodeMap)
+	}
+	return nodeMap
+}
