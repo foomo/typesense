@@ -11,7 +11,7 @@ import (
 
 type ContentServer[indexDocument any] struct {
 	l                     *zap.Logger
-	client                *client.Client
+	contentserverClient   *client.Client
 	documentProviderFuncs map[typesense.DocumentType]typesense.DocumentProviderFunc[indexDocument]
 }
 
@@ -22,7 +22,7 @@ func NewContentServer[indexDocument any](
 ) *ContentServer[indexDocument] {
 	return &ContentServer[indexDocument]{
 		l:                     l,
-		client:                client,
+		contentserverClient:   client,
 		documentProviderFuncs: documentProviderFuncs,
 	}
 }
@@ -71,7 +71,7 @@ func (c ContentServer[indexDocument]) getDocumentIDsByIndexID(
 ) ([]typesense.DocumentInfo, error) {
 	// get the contentserver dimension defined by indexID
 	// create the list of document infos
-	repo, err := c.client.GetRepo(ctx)
+	repo, err := c.contentserverClient.GetRepo(ctx)
 	if err != nil {
 		return nil, err
 	}
