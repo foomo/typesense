@@ -3,6 +3,8 @@ package typesenseindexing
 import (
 	"context"
 	"fmt"
+	"slices"
+
 	"github.com/foomo/contentserver/client"
 	"github.com/foomo/contentserver/content"
 	typesense "github.com/foomo/typesense/pkg"
@@ -13,29 +15,32 @@ type ContentServer[indexDocument any] struct {
 	l                     *zap.Logger
 	contentserverClient   *client.Client
 	documentProviderFuncs map[typesense.DocumentType]typesense.DocumentProviderFunc[indexDocument]
+	supportedMimeTypes    []string
 }
 
 func NewContentServer[indexDocument any](
 	l *zap.Logger,
 	client *client.Client,
 	documentProviderFuncs map[typesense.DocumentType]typesense.DocumentProviderFunc[indexDocument],
+	supportedMimeTypes []string,
 ) *ContentServer[indexDocument] {
 	return &ContentServer[indexDocument]{
 		l:                     l,
 		contentserverClient:   client,
 		documentProviderFuncs: documentProviderFuncs,
+		supportedMimeTypes:    supportedMimeTypes,
 	}
 }
 
 func (c ContentServer[indexDocument]) Provide(
 	ctx context.Context,
 	indexID typesense.IndexID,
-) ([]indexDocument, error) {
+) ([]*indexDocument, error) {
 	documentInfos, err := c.getDocumentIDsByIndexID(ctx, indexID)
 	if err != nil {
 		return nil, err
 	}
-	documents := make([]indexDocument, len(documentInfos))
+	documents := make([]*indexDocument, len(documentInfos))
 	for index, documentInfo := range documentInfos {
 		if documentProvider, ok := c.documentProviderFuncs[documentInfo.DocumentType]; !ok {
 			c.l.Warn("no document provider available for document type", zap.String("documentType", string(documentInfo.DocumentType)))
@@ -50,7 +55,9 @@ func (c ContentServer[indexDocument]) Provide(
 				)
 				continue
 			}
-			documents[index] = document
+			if document != nil {
+				documents[index] = document
+			}
 		}
 	}
 	return documents, nil
@@ -60,9 +67,8 @@ func (c ContentServer[indexDocument]) ProvidePaged(
 	ctx context.Context,
 	indexID typesense.IndexID,
 	offset int,
-) ([]indexDocument, int, error) {
+) ([]*indexDocument, int, error) {
 	panic("implement me")
-	return nil, 0, nil
 }
 
 func (c ContentServer[indexDocument]) getDocumentIDsByIndexID(
@@ -83,10 +89,12 @@ func (c ContentServer[indexDocument]) getDocumentIDsByIndexID(
 	nodeMap := createFlatRepoNodeMap(rootRepoNode, map[string]*content.RepoNode{})
 	documentInfos := make([]typesense.DocumentInfo, 0, len(nodeMap))
 	for _, repoNode := range nodeMap {
-		documentInfos = append(documentInfos, typesense.DocumentInfo{
-			DocumentType: typesense.DocumentType(repoNode.MimeType),
-			DocumentID:   typesense.DocumentID(repoNode.ID),
-		})
+		if slices.Contains(c.supportedMimeTypes, repoNode.MimeType) {
+			documentInfos = append(documentInfos, typesense.DocumentInfo{
+				DocumentType: typesense.DocumentType(repoNode.MimeType),
+				DocumentID:   typesense.DocumentID(repoNode.ID),
+			})
+		}
 	}
 
 	return documentInfos, nil

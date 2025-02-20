@@ -19,7 +19,7 @@ type DocumentProviderFunc[indexDocument any] func(
 	ctx context.Context,
 	indexID IndexID,
 	documentID DocumentID,
-) (indexDocument, error)
+) (*indexDocument, error)
 
 type DocumentInfo struct {
 	DocumentType DocumentType
