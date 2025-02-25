@@ -274,7 +274,7 @@ func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 	page, perPage int,
 	sortBy string,
 ) ([]returnType, pkgtypesense.Scores, error) {
-	// Call getSearchCollectionParameters but also set QueryBy explicitly
+	// Call buildSearchParams but also set QueryBy explicitly
 	parameters := buildSearchParams(q, filterBy, page, perPage, sortBy)
 	parameters.QueryBy = pointer.String("title")
 
