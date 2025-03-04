@@ -40,12 +40,23 @@ func (c ContentServer[indexDocument]) Provide(
 	if err != nil {
 		return nil, err
 	}
+
+	ids := make([]string, 0, len(documentInfos))
+	for _, documentInfo := range documentInfos {
+		ids = append(ids, string(documentInfo.DocumentID))
+	}
+
+	uriMap, err := c.contentserverClient.GetURIs(ctx, string(indexID), ids)
+	if err != nil {
+		return nil, err
+	}
+
 	documents := make([]*indexDocument, len(documentInfos))
 	for index, documentInfo := range documentInfos {
 		if documentProvider, ok := c.documentProviderFuncs[documentInfo.DocumentType]; !ok {
 			c.l.Warn("no document provider available for document type", zap.String("documentType", string(documentInfo.DocumentType)))
 		} else {
-			document, err := documentProvider(ctx, indexID, documentInfo.DocumentID)
+			document, err := documentProvider(ctx, indexID, documentInfo.DocumentID, uriMap)
 			if err != nil {
 				c.l.Error(
 					"index document not created",

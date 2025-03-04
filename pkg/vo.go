@@ -19,6 +19,7 @@ type DocumentProviderFunc[indexDocument any] func(
 	ctx context.Context,
 	indexID IndexID,
 	documentID DocumentID,
+	uriMap map[string]string,
 ) (*indexDocument, error)
 
 type DocumentInfo struct {
