@@ -270,7 +270,7 @@ func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 	ctx context.Context,
 	index pkgtypesense.IndexID,
 	q string,
-	filterBy map[string]string,
+	filterBy map[string][]string,
 	page, perPage int,
 	sortBy string,
 ) ([]returnType, pkgtypesense.Scores, error) {

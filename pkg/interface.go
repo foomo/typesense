@@ -21,7 +21,7 @@ type API[indexDocument any, returnType any] interface {
 		ctx context.Context,
 		index IndexID,
 		q string,
-		filterBy map[string]string,
+		filterBy map[string][]string,
 		page, perPage int,
 		sortBy string,
 	) ([]returnType, Scores, error)
