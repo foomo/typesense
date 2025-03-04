@@ -273,7 +273,7 @@ func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 	filterBy map[string][]string,
 	page, perPage int,
 	sortBy string,
-) ([]returnType, pkgtypesense.Scores, error) {
+) ([]returnType, pkgtypesense.Scores, int, error) {
 	// Call buildSearchParams but also set QueryBy explicitly
 	parameters := buildSearchParams(q, filterBy, page, perPage, sortBy)
 	parameters.QueryBy = pointer.String("title")
@@ -282,26 +282,35 @@ func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 }
 
 // ExpertSearch will perform a search operation on the given index
-// it will return the documents and the scores
+// it will return the documents, scores, and totalResults
 func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 	ctx context.Context,
 	indexID pkgtypesense.IndexID,
 	parameters *api.SearchCollectionParams,
-) ([]returnType, pkgtypesense.Scores, error) {
+) ([]returnType, pkgtypesense.Scores, int, error) {
 	if parameters == nil {
 		b.l.Error("Search parameters are nil")
-		return nil, nil, errors.New("search parameters cannot be nil")
+		return nil, nil, 0, errors.New("search parameters cannot be nil")
 	}
 
 	collectionName := string(indexID) // digital-bks-at-de
 	searchResponse, err := b.client.Collection(collectionName).Documents().Search(ctx, parameters)
 	if err != nil {
 		b.l.Error("Failed to perform search", zap.String("index", collectionName), zap.Error(err))
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 
+	// Handle nil response
+	if searchResponse == nil || searchResponse.Hits == nil {
+		b.l.Warn("Search response or hits is nil", zap.String("index", collectionName))
+		return nil, nil, 0, nil
+	}
+
+	// Extract totalResults from the search response
+	totalResults := *searchResponse.Found
+
 	// Parse search results
-	var results = make([]returnType, 0, len(*searchResponse.Hits))
+	results := make([]returnType, 0, len(*searchResponse.Hits))
 	scores := make(pkgtypesense.Scores)
 
 	for _, hit := range *searchResponse.Hits {
@@ -341,7 +350,8 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 	b.l.Info("Search completed",
 		zap.String("index", collectionName),
 		zap.Int("results_count", len(results)),
+		zap.Int("total_results", totalResults),
 	)
 
-	return results, scores, nil
+	return results, scores, totalResults, nil
 }

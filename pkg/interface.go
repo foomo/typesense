@@ -24,8 +24,8 @@ type API[indexDocument any, returnType any] interface {
 		filterBy map[string][]string,
 		page, perPage int,
 		sortBy string,
-	) ([]returnType, Scores, error)
-	ExpertSearch(ctx context.Context, index IndexID, parameters *api.SearchCollectionParams) ([]returnType, Scores, error)
+	) ([]returnType, Scores, int, error)
+	ExpertSearch(ctx context.Context, index IndexID, parameters *api.SearchCollectionParams) ([]returnType, Scores, int, error)
 	Healthz(ctx context.Context) error
 	Indices() ([]IndexID, error)
 }
