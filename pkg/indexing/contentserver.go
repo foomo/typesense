@@ -48,6 +48,7 @@ func (c ContentServer[indexDocument]) Provide(
 
 	uriMap, err := c.contentserverClient.GetURIs(ctx, string(indexID), ids)
 	if err != nil {
+		c.l.Error("failed to get URIs", zap.Error(err))
 		return nil, err
 	}
 

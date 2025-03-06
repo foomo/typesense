@@ -18,7 +18,7 @@ import (
 // for the typesense search API without any knowledge of the typesense API
 func buildSearchParams(
 	q string,
-	filterBy map[string][]string, // Updated to allow multiple values per field
+	filterBy map[string][]string,
 	page, perPage int,
 	sortBy string,
 ) *api.SearchCollectionParams {
@@ -56,7 +56,7 @@ func formatFilterQuery(filterBy map[string][]string) string {
 		}
 	}
 
-	return strings.Join(filterClauses, " && ") // AND conditions by default
+	return strings.Join(filterClauses, " && ")
 }
 
 func (b *BaseAPI[indexDocument, returnType]) generateRevisionID() pkgtypesense.RevisionID {
