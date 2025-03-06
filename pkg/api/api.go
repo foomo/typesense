@@ -299,21 +299,24 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 		b.l.Error("Failed to perform search", zap.String("index", collectionName), zap.Error(err))
 		return nil, nil, 0, err
 	}
-
-	// Handle nil response
-	if searchResponse == nil || searchResponse.Hits == nil {
-		b.l.Warn("Search response or hits is nil", zap.String("index", collectionName))
-		return nil, nil, 0, nil
-	}
-
 	// Extract totalResults from the search response
 	totalResults := *searchResponse.Found
 
-	// Parse search results
-	results := make([]returnType, 0, len(*searchResponse.Hits))
+	// Ensure Hits is not empty before proceeding
+	if searchResponse.Hits == nil || len(*searchResponse.Hits) == 0 {
+		b.l.Warn("Search response contains no hits", zap.String("index", collectionName))
+		return nil, nil, totalResults, nil
+	}
+
+	results := make([]returnType, len(*searchResponse.Hits))
 	scores := make(pkgtypesense.Scores)
 
 	for i, hit := range *searchResponse.Hits {
+		if hit.Document == nil {
+			b.l.Warn("Hit document is nil", zap.String("index", collectionName))
+			continue
+		}
+
 		docMap := *hit.Document
 
 		// Extract document ID safely
