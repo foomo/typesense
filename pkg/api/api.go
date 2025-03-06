@@ -313,7 +313,7 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 	results := make([]returnType, 0, len(*searchResponse.Hits))
 	scores := make(pkgtypesense.Scores)
 
-	for _, hit := range *searchResponse.Hits {
+	for i, hit := range *searchResponse.Hits {
 		docMap := *hit.Document
 
 		// Extract document ID safely
@@ -331,7 +331,7 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 			continue
 		}
 
-		results = append(results, doc)
+		results[i] = doc
 		index := 0
 		if hit.TextMatchInfo != nil && hit.TextMatchInfo.Score != nil {
 			if score, err := strconv.Atoi(*hit.TextMatchInfo.Score); err == nil {
