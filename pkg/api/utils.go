@@ -18,7 +18,7 @@ import (
 // for the typesense search API without any knowledge of the typesense API
 func buildSearchParams(
 	q string,
-	filterBy map[string]string,
+	filterBy map[string][]string,
 	page, perPage int,
 	sortBy string,
 ) *api.SearchCollectionParams {
@@ -36,29 +36,31 @@ func buildSearchParams(
 	return parameters
 }
 
-func formatFilterQuery(filterBy map[string]string) string {
+func formatFilterQuery(filterBy map[string][]string) string {
 	if filterBy == nil {
 		return ""
 	}
-	filterByString := []string{}
-	for key, value := range filterBy {
-		filterByString = append(filterByString, key+":="+value)
+
+	var filterClauses []string
+	for key, values := range filterBy {
+		if len(values) == 1 {
+			// Single value → Use `:=` operator
+			filterClauses = append(filterClauses, fmt.Sprintf("%s:=\"%s\"", key, values[0]))
+		} else {
+			// Multiple values → Use `["val1","val2"]` array syntax
+			formattedValues := []string{}
+			for _, v := range values {
+				formattedValues = append(formattedValues, fmt.Sprintf("\"%s\"", v))
+			}
+			filterClauses = append(filterClauses, fmt.Sprintf("%s:[%s]", key, strings.Join(formattedValues, ",")))
+		}
 	}
-	return strings.Join(filterByString, "&&")
+
+	return strings.Join(filterClauses, " && ")
 }
 
 func (b *BaseAPI[indexDocument, returnType]) generateRevisionID() pkgtypesense.RevisionID {
 	return pkgtypesense.RevisionID(time.Now().Format("2006-01-02-15-04")) // "YYYY-MM-DD-HH-MM"
-}
-
-func getLatestRevisionID(revisions map[pkgtypesense.IndexID]pkgtypesense.RevisionID) pkgtypesense.RevisionID {
-	var latest pkgtypesense.RevisionID
-	for _, rev := range revisions {
-		if rev > latest {
-			latest = rev
-		}
-	}
-	return latest
 }
 
 func formatCollectionName(indexID pkgtypesense.IndexID, revisionID pkgtypesense.RevisionID) string {

@@ -270,10 +270,10 @@ func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 	ctx context.Context,
 	index pkgtypesense.IndexID,
 	q string,
-	filterBy map[string]string,
+	filterBy map[string][]string,
 	page, perPage int,
 	sortBy string,
-) ([]returnType, pkgtypesense.Scores, error) {
+) ([]returnType, pkgtypesense.Scores, int, error) {
 	// Call buildSearchParams but also set QueryBy explicitly
 	parameters := buildSearchParams(q, filterBy, page, perPage, sortBy)
 	parameters.QueryBy = pointer.String("title")
@@ -282,29 +282,41 @@ func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 }
 
 // ExpertSearch will perform a search operation on the given index
-// it will return the documents and the scores
+// it will return the documents, scores, and totalResults
 func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 	ctx context.Context,
 	indexID pkgtypesense.IndexID,
 	parameters *api.SearchCollectionParams,
-) ([]returnType, pkgtypesense.Scores, error) {
+) ([]returnType, pkgtypesense.Scores, int, error) {
 	if parameters == nil {
 		b.l.Error("Search parameters are nil")
-		return nil, nil, errors.New("search parameters cannot be nil")
+		return nil, nil, 0, errors.New("search parameters cannot be nil")
 	}
 
 	collectionName := string(indexID) // digital-bks-at-de
 	searchResponse, err := b.client.Collection(collectionName).Documents().Search(ctx, parameters)
 	if err != nil {
 		b.l.Error("Failed to perform search", zap.String("index", collectionName), zap.Error(err))
-		return nil, nil, err
+		return nil, nil, 0, err
+	}
+	// Extract totalResults from the search response
+	totalResults := *searchResponse.Found
+
+	// Ensure Hits is not empty before proceeding
+	if searchResponse.Hits == nil || len(*searchResponse.Hits) == 0 {
+		b.l.Warn("Search response contains no hits", zap.String("index", collectionName))
+		return nil, nil, totalResults, nil
 	}
 
-	// Parse search results
-	var results = make([]returnType, 0, len(*searchResponse.Hits))
+	results := make([]returnType, len(*searchResponse.Hits))
 	scores := make(pkgtypesense.Scores)
 
-	for _, hit := range *searchResponse.Hits {
+	for i, hit := range *searchResponse.Hits {
+		if hit.Document == nil {
+			b.l.Warn("Hit document is nil", zap.String("index", collectionName))
+			continue
+		}
+
 		docMap := *hit.Document
 
 		// Extract document ID safely
@@ -322,7 +334,7 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 			continue
 		}
 
-		results = append(results, doc)
+		results[i] = doc
 		index := 0
 		if hit.TextMatchInfo != nil && hit.TextMatchInfo.Score != nil {
 			if score, err := strconv.Atoi(*hit.TextMatchInfo.Score); err == nil {
@@ -341,7 +353,8 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 	b.l.Info("Search completed",
 		zap.String("index", collectionName),
 		zap.Int("results_count", len(results)),
+		zap.Int("total_results", totalResults),
 	)
 
-	return results, scores, nil
+	return results, scores, totalResults, nil
 }

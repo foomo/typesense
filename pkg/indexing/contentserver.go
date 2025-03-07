@@ -40,12 +40,18 @@ func (c ContentServer[indexDocument]) Provide(
 	if err != nil {
 		return nil, err
 	}
+
+	urlsByIDs, err := c.fetchURLsByDocumentIDs(ctx, indexID, documentInfos)
+	if err != nil {
+		return nil, err
+	}
+
 	documents := make([]*indexDocument, len(documentInfos))
 	for index, documentInfo := range documentInfos {
 		if documentProvider, ok := c.documentProviderFuncs[documentInfo.DocumentType]; !ok {
 			c.l.Warn("no document provider available for document type", zap.String("documentType", string(documentInfo.DocumentType)))
 		} else {
-			document, err := documentProvider(ctx, indexID, documentInfo.DocumentID)
+			document, err := documentProvider(ctx, indexID, documentInfo.DocumentID, urlsByIDs)
 			if err != nil {
 				c.l.Error(
 					"index document not created",
@@ -112,4 +118,32 @@ func createFlatRepoNodeMap(node *content.RepoNode, nodeMap map[string]*content.R
 		nodeMap = createFlatRepoNodeMap(child, nodeMap)
 	}
 	return nodeMap
+}
+
+func (c ContentServer[indexDocument]) fetchURLsByDocumentIDs(
+	ctx context.Context,
+	indexID typesense.IndexID,
+	documentInfos []typesense.DocumentInfo,
+) (map[typesense.DocumentID]string, error) {
+	ids := make([]string, len(documentInfos))
+
+	for i, documentInfo := range documentInfos {
+		ids[i] = string(documentInfo.DocumentID)
+	}
+
+	uriMap, err := c.contentserverClient.GetURIs(ctx, string(indexID), ids)
+	if err != nil {
+		c.l.Error("failed to get URIs", zap.Error(err))
+		return nil, err
+	}
+
+	return convertMapStringToDocumentID(uriMap), nil
+}
+
+func convertMapStringToDocumentID(input map[string]string) map[typesense.DocumentID]string {
+	output := make(map[typesense.DocumentID]string, len(input))
+	for key, value := range input {
+		output[typesense.DocumentID(key)] = value
+	}
+	return output
 }
