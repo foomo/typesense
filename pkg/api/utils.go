@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	pkgtypesense "github.com/foomo/typesense/pkg"
+	pkgx "github.com/foomo/typesense/pkg"
 	"github.com/typesense/typesense-go/v3/typesense/api"
 	"github.com/typesense/typesense-go/v3/typesense/api/pointer"
 	"go.uber.org/zap"
@@ -59,15 +59,15 @@ func formatFilterQuery(filterBy map[string][]string) string {
 	return strings.Join(filterClauses, " && ")
 }
 
-func (b *BaseAPI[indexDocument, returnType]) generateRevisionID() pkgtypesense.RevisionID {
-	return pkgtypesense.RevisionID(time.Now().Format("2006-01-02-15-04")) // "YYYY-MM-DD-HH-MM"
+func (b *BaseAPI[indexDocument, returnType]) generateRevisionID() pkgx.RevisionID {
+	return pkgx.RevisionID(time.Now().Format("2006-01-02-15-04")) // "YYYY-MM-DD-HH-MM"
 }
 
-func formatCollectionName(indexID pkgtypesense.IndexID, revisionID pkgtypesense.RevisionID) string {
+func formatCollectionName(indexID pkgx.IndexID, revisionID pkgx.RevisionID) string {
 	return fmt.Sprintf("%s-%s", indexID, revisionID)
 }
 
-func extractRevisionID(collectionName, name string) pkgtypesense.RevisionID {
+func extractRevisionID(collectionName, name string) pkgx.RevisionID {
 	if !strings.HasPrefix(collectionName, name+"-") {
 		return ""
 	}
@@ -79,11 +79,11 @@ func extractRevisionID(collectionName, name string) pkgtypesense.RevisionID {
 		return ""
 	}
 
-	return pkgtypesense.RevisionID(revisionID)
+	return pkgx.RevisionID(revisionID)
 }
 
 // ensureAliasMapping ensures an alias correctly points to the specified collection.
-func (b *BaseAPI[indexDocument, returnType]) ensureAliasMapping(ctx context.Context, indexID pkgtypesense.IndexID, collectionName string) error {
+func (b *BaseAPI[indexDocument, returnType]) ensureAliasMapping(ctx context.Context, indexID pkgx.IndexID, collectionName string) error {
 	_, err := b.client.Aliases().Upsert(ctx, string(indexID), &api.CollectionAliasSchema{
 		CollectionName: collectionName,
 	})

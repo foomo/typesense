@@ -3,20 +3,20 @@ package typesenseindexing
 import (
 	"context"
 
-	typesense "github.com/foomo/typesense/pkg"
+	pkgx "github.com/foomo/typesense/pkg"
 	"go.uber.org/zap"
 )
 
 type BaseIndexer[indexDocument any, returnType any] struct {
 	l                *zap.Logger
-	typesenseAPI     typesense.API[indexDocument, returnType]
-	documentProvider typesense.DocumentProvider[indexDocument]
+	typesenseAPI     pkgx.API[indexDocument, returnType]
+	documentProvider pkgx.DocumentProvider[indexDocument]
 }
 
 func NewBaseIndexer[indexDocument any, returnType any](
 	l *zap.Logger,
-	typesenseAPI typesense.API[indexDocument, returnType],
-	documentProvider typesense.DocumentProvider[indexDocument],
+	typesenseAPI pkgx.API[indexDocument, returnType],
+	documentProvider pkgx.DocumentProvider[indexDocument],
 ) *BaseIndexer[indexDocument, returnType] {
 	return &BaseIndexer[indexDocument, returnType]{
 		l:                l,
