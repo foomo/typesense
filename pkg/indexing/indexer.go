@@ -33,14 +33,14 @@ func (b *BaseIndexer[indexDocument, returnType]) Run(ctx context.Context) error 
 	// Step 1: Ensure Typesense is initialized
 	revisionID, err := b.typesenseAPI.Initialize(ctx)
 	if err != nil || revisionID == "" {
-		b.l.Error("Failed to initialize Typesense", zap.Error(err))
+		b.l.Error("failed to initialize typesense", zap.Error(err))
 		return err
 	}
 
 	// Step 2: Retrieve all configured indices
 	indices, err := b.typesenseAPI.Indices()
 	if err != nil {
-		b.l.Error("Failed to retrieve indices from Typesense", zap.Error(err))
+		b.l.Error("failed to retrieve indices from typesense", zap.Error(err))
 		return err
 	}
 
@@ -52,7 +52,7 @@ func (b *BaseIndexer[indexDocument, returnType]) Run(ctx context.Context) error 
 		// Fetch documents from the provider
 		documents, err := b.documentProvider.Provide(ctx, indexID)
 		if err != nil {
-			b.l.Error("Failed to fetch documents", zap.String("index", string(indexID)), zap.Error(err))
+			b.l.Error("failed to fetch documents", zap.String("index", string(indexID)), zap.Error(err))
 			tainted = true
 			continue
 		}
@@ -60,7 +60,7 @@ func (b *BaseIndexer[indexDocument, returnType]) Run(ctx context.Context) error 
 		err = b.typesenseAPI.UpsertDocuments(ctx, revisionID, indexID, documents)
 		if err != nil {
 			b.l.Error(
-				"Failed to upsert documents",
+				"failed to upsert documents",
 				zap.String("index", string(indexID)),
 				zap.String("revision", string(revisionID)),
 				zap.Int("documents", len(documents)),
@@ -71,7 +71,7 @@ func (b *BaseIndexer[indexDocument, returnType]) Run(ctx context.Context) error 
 		}
 
 		indexedDocuments += len(documents)
-		b.l.Info("Successfully upserted documents",
+		b.l.Info("successfully upserted documents",
 			zap.String("index", string(indexID)),
 			zap.Int("count", len(documents)),
 		)
@@ -82,20 +82,20 @@ func (b *BaseIndexer[indexDocument, returnType]) Run(ctx context.Context) error 
 		// No errors encountered, commit the revision
 		err = b.typesenseAPI.CommitRevision(ctx, revisionID)
 		if err != nil {
-			b.l.Error("Failed to commit revision", zap.String("revision", string(revisionID)), zap.Error(err))
+			b.l.Error("failed to commit revision", zap.String("revision", string(revisionID)), zap.Error(err))
 			return err
 		}
-		b.l.Info("Successfully committed revision", zap.String("revision", string(revisionID)))
+		b.l.Info("successfully committed revision", zap.String("revision", string(revisionID)))
 	} else {
 		// If errors occurred, revert the revision
-		b.l.Warn("Errors detected during upsert, reverting revision", zap.String("revision", string(revisionID)))
+		b.l.Warn("errors detected during upsert, reverting revision", zap.String("revision", string(revisionID)))
 
 		err = b.typesenseAPI.RevertRevision(ctx, revisionID)
 		if err != nil {
-			b.l.Error("Failed to revert revision", zap.String("revision", string(revisionID)), zap.Error(err))
+			b.l.Error("failed to revert revision", zap.String("revision", string(revisionID)), zap.Error(err))
 			return err
 		}
-		b.l.Info("Successfully reverted revision", zap.String("revision", string(revisionID)))
+		b.l.Info("successfully reverted revision", zap.String("revision", string(revisionID)))
 	}
 
 	return nil

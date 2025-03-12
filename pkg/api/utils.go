@@ -88,7 +88,7 @@ func (b *BaseAPI[indexDocument, returnType]) ensureAliasMapping(ctx context.Cont
 		CollectionName: collectionName,
 	})
 	if err != nil {
-		b.l.Error("Failed to upsert alias",
+		b.l.Error("failed to upsert alias",
 			zap.String("alias", string(indexID)),
 			zap.String("collection", collectionName),
 			zap.Error(err),
@@ -101,7 +101,7 @@ func (b *BaseAPI[indexDocument, returnType]) pruneOldCollections(ctx context.Con
 	// Step 1: Retrieve all collections
 	collections, err := b.client.Collections().Retrieve(ctx)
 	if err != nil {
-		b.l.Error("Failed to retrieve collections", zap.Error(err))
+		b.l.Error("failed to retrieve collections", zap.Error(err))
 		return err
 	}
 
@@ -123,9 +123,9 @@ func (b *BaseAPI[indexDocument, returnType]) pruneOldCollections(ctx context.Con
 		for _, col := range toDelete {
 			_, err := b.client.Collection(col).Delete(ctx)
 			if err != nil {
-				b.l.Error("Failed to delete collection", zap.String("collection", col), zap.Error(err))
+				b.l.Error("failed to delete collection", zap.String("collection", col), zap.Error(err))
 			} else {
-				b.l.Info("Deleted old collection", zap.String("collection", col))
+				b.l.Info("deleted old collection", zap.String("collection", col))
 			}
 		}
 	}
@@ -137,7 +137,7 @@ func (b *BaseAPI[indexDocument, returnType]) pruneOldCollections(ctx context.Con
 func (b *BaseAPI[indexDocument, returnType]) fetchExistingCollections(ctx context.Context) (map[string]bool, error) {
 	collections, err := b.client.Collections().Retrieve(ctx)
 	if err != nil {
-		b.l.Error("Failed to retrieve collections", zap.Error(err))
+		b.l.Error("failed to retrieve collections", zap.Error(err))
 		return nil, err
 	}
 
@@ -158,7 +158,7 @@ func (b *BaseAPI[indexDocument, returnType]) createCollectionIfNotExists(ctx con
 	}
 
 	if existingCollections[collectionName] {
-		b.l.Info("Collection already exists, skipping creation", zap.String("collection", collectionName))
+		b.l.Info("collection already exists, skipping creation", zap.String("collection", collectionName))
 		return nil
 	}
 
@@ -166,10 +166,10 @@ func (b *BaseAPI[indexDocument, returnType]) createCollectionIfNotExists(ctx con
 	schema.Name = collectionName
 	_, err = b.client.Collections().Create(ctx, schema)
 	if err != nil {
-		b.l.Error("Failed to create collection", zap.String("collection", collectionName), zap.Error(err))
+		b.l.Error("failed to create collection", zap.String("collection", collectionName), zap.Error(err))
 		return err
 	}
 
-	b.l.Info("Created new collection", zap.String("collection", collectionName))
+	b.l.Info("created new collection", zap.String("collection", collectionName))
 	return nil
 }

@@ -85,18 +85,18 @@ func (b *BaseAPI[indexDocument, returnType]) Indices() ([]pkgx.IndexID, error) {
 // are correctly linked to their respective aliases.
 // The function sets the revisionID that is currently linked to the aliases internally.
 func (b *BaseAPI[indexDocument, returnType]) Initialize(ctx context.Context) (pkgx.RevisionID, error) {
-	b.l.Info("Initializing Typesense collections and aliases...")
+	b.l.Info("initializing typesense collections and aliases...")
 
 	// Step 1: Check Typesense connection
 	if _, err := b.client.Health(ctx, 5*time.Second); err != nil {
-		b.l.Error("Typesense health check failed", zap.Error(err))
+		b.l.Error("typesense health check failed", zap.Error(err))
 		return "", err
 	}
 
 	// Step 2: Retrieve existing aliases and collections
 	aliases, err := b.client.Aliases().Retrieve(ctx)
 	if err != nil {
-		b.l.Error("Failed to retrieve aliases", zap.Error(err))
+		b.l.Error("failed to retrieve aliases", zap.Error(err))
 		return "", err
 	}
 
@@ -125,7 +125,7 @@ func (b *BaseAPI[indexDocument, returnType]) Initialize(ctx context.Context) (pk
 
 	// Step 4: Ensure all aliases are correctly mapped to collections and create a new revision
 	newRevisionID := b.generateRevisionID()
-	b.l.Info("Generated new revision", zap.String("revisionID", string(newRevisionID)))
+	b.l.Info("generated new revision", zap.String("revisionID", string(newRevisionID)))
 
 	for indexID, schema := range b.collections {
 		collectionName := formatCollectionName(indexID, newRevisionID)
@@ -153,12 +153,12 @@ func (b *BaseAPI[indexDocument, returnType]) Initialize(ctx context.Context) (pk
 	if b.preset != nil {
 		_, err := b.client.Presets().Upsert(ctx, defaultSearchPresetName, b.preset)
 		if err != nil {
-			b.l.Error("Failed to upsert search preset", zap.Error(err))
+			b.l.Error("failed to upsert search preset", zap.Error(err))
 			return "", err
 		}
 	}
 
-	b.l.Info("Initialization completed", zap.String("revisionID", string(b.revisionID)))
+	b.l.Info("initialization completed", zap.String("revisionID", string(b.revisionID)))
 
 	return b.revisionID, nil
 }
@@ -190,7 +190,7 @@ func (b *BaseAPI[indexDocument, returnType]) UpsertDocuments(
 
 	importResults, err := b.client.Collection(collectionName).Documents().Import(ctx, docInterfaces, params)
 	if err != nil {
-		b.l.Error("Failed to bulk upsert documents", zap.String("collection", collectionName), zap.Error(err))
+		b.l.Error("failed to bulk upsert documents", zap.String("collection", collectionName), zap.Error(err))
 		return err
 	}
 
@@ -208,7 +208,7 @@ func (b *BaseAPI[indexDocument, returnType]) UpsertDocuments(
 		}
 	}
 
-	b.l.Info("Bulk upsert completed",
+	b.l.Info("bulk upsert completed",
 		zap.String("collection", collectionName),
 		zap.Int("successful_documents", successCount),
 		zap.Int("failed_documents", failureCount),
@@ -231,15 +231,15 @@ func (b *BaseAPI[indexDocument, returnType]) CommitRevision(ctx context.Context,
 				CollectionName: newCollectionName,
 			})
 		if err != nil {
-			b.l.Error("Failed to update alias", zap.String("alias", alias), zap.Error(err))
+			b.l.Error("failed to update alias", zap.String("alias", alias), zap.Error(err))
 			return err
 		}
-		b.l.Info("Updated alias", zap.String("alias", alias), zap.String("collection", newCollectionName))
+		b.l.Info("updated alias", zap.String("alias", alias), zap.String("collection", newCollectionName))
 
 		// Step 2: Clean up old collections (keep only the last two)
 		err = b.pruneOldCollections(ctx, alias, newCollectionName)
 		if err != nil {
-			b.l.Error("Failed to clean up old collections", zap.String("alias", alias), zap.Error(err))
+			b.l.Error("failed to clean up old collections", zap.String("alias", alias), zap.Error(err))
 		}
 	}
 
@@ -289,14 +289,14 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 	parameters *api.SearchCollectionParams,
 ) ([]returnType, pkgx.Scores, int, error) {
 	if parameters == nil {
-		b.l.Error("Search parameters are nil")
+		b.l.Error("search parameters are nil")
 		return nil, nil, 0, errors.New("search parameters cannot be nil")
 	}
 
 	collectionName := string(indexID) // digital-bks-at-de
 	searchResponse, err := b.client.Collection(collectionName).Documents().Search(ctx, parameters)
 	if err != nil {
-		b.l.Error("Failed to perform search", zap.String("index", collectionName), zap.Error(err))
+		b.l.Error("failed to perform search", zap.String("index", collectionName), zap.Error(err))
 		return nil, nil, 0, err
 	}
 	// Extract totalResults from the search response
@@ -304,7 +304,7 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 
 	// Ensure Hits is not empty before proceeding
 	if searchResponse.Hits == nil || len(*searchResponse.Hits) == 0 {
-		b.l.Warn("Search response contains no hits", zap.String("index", collectionName))
+		b.l.Warn("search response contains no hits", zap.String("index", collectionName))
 		return nil, nil, totalResults, nil
 	}
 
@@ -313,7 +313,7 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 
 	for i, hit := range *searchResponse.Hits {
 		if hit.Document == nil {
-			b.l.Warn("Hit document is nil", zap.String("index", collectionName))
+			b.l.Warn("hit document is nil", zap.String("index", collectionName))
 			continue
 		}
 
