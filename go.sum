@@ -72,8 +72,8 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tinylib/msgp v1.2.4 h1:yLFeUGostXXSGW5vxfT5dXG/qzkn4schv2I7at5+hVU=
 github.com/tinylib/msgp v1.2.4/go.mod h1:ykjzy2wzgrlvpDCRc4LA8UXy6D8bzMSuAF3WD57Gok0=
-github.com/typesense/typesense-go/v3 v3.0.0 h1:uLCMfVhv5GkZNjMGr/UHqVMKKdF0bkoTH4hAeigw8PE=
-github.com/typesense/typesense-go/v3 v3.0.0/go.mod h1:Jx4PAXe3jRx6sc032nhN9Aj+OvMoPtQJW6p1a6H4Zeg=
+github.com/typesense/typesense-go/v3 v3.1.0 h1:6bNmYmlploOIj/7HoyE56GqGoT1RAwKr2RoR+FFDLlQ=
+github.com/typesense/typesense-go/v3 v3.1.0/go.mod h1:Jx4PAXe3jRx6sc032nhN9Aj+OvMoPtQJW6p1a6H4Zeg=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.57.0 h1:DheMAlT6POBP+gh8RUH19EOTnQIor5QE0uSRPtzCpSw=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.57.0/go.mod h1:wZcGmeVO9nzP67aYSLDqXNWK87EZWhi7JWj1v7ZXf94=
 go.opentelemetry.io/otel v1.32.0 h1:WnBN+Xjcteh0zdk01SVqV55d/m62NJLJdIyb4y/WO5U=
