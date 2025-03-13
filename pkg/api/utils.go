@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	pkgtypesense "github.com/foomo/typesense/pkg"
+	pkgx "github.com/foomo/typesense/pkg"
 	"github.com/typesense/typesense-go/v3/typesense/api"
 	"github.com/typesense/typesense-go/v3/typesense/api/pointer"
 	"go.uber.org/zap"
@@ -59,15 +59,15 @@ func formatFilterQuery(filterBy map[string][]string) string {
 	return strings.Join(filterClauses, " && ")
 }
 
-func (b *BaseAPI[indexDocument, returnType]) generateRevisionID() pkgtypesense.RevisionID {
-	return pkgtypesense.RevisionID(time.Now().Format("2006-01-02-15-04")) // "YYYY-MM-DD-HH-MM"
+func (b *BaseAPI[indexDocument, returnType]) generateRevisionID() pkgx.RevisionID {
+	return pkgx.RevisionID(time.Now().Format("2006-01-02-15-04")) // "YYYY-MM-DD-HH-MM"
 }
 
-func formatCollectionName(indexID pkgtypesense.IndexID, revisionID pkgtypesense.RevisionID) string {
+func formatCollectionName(indexID pkgx.IndexID, revisionID pkgx.RevisionID) string {
 	return fmt.Sprintf("%s-%s", indexID, revisionID)
 }
 
-func extractRevisionID(collectionName, name string) pkgtypesense.RevisionID {
+func extractRevisionID(collectionName, name string) pkgx.RevisionID {
 	if !strings.HasPrefix(collectionName, name+"-") {
 		return ""
 	}
@@ -79,16 +79,16 @@ func extractRevisionID(collectionName, name string) pkgtypesense.RevisionID {
 		return ""
 	}
 
-	return pkgtypesense.RevisionID(revisionID)
+	return pkgx.RevisionID(revisionID)
 }
 
 // ensureAliasMapping ensures an alias correctly points to the specified collection.
-func (b *BaseAPI[indexDocument, returnType]) ensureAliasMapping(ctx context.Context, indexID pkgtypesense.IndexID, collectionName string) error {
+func (b *BaseAPI[indexDocument, returnType]) ensureAliasMapping(ctx context.Context, indexID pkgx.IndexID, collectionName string) error {
 	_, err := b.client.Aliases().Upsert(ctx, string(indexID), &api.CollectionAliasSchema{
 		CollectionName: collectionName,
 	})
 	if err != nil {
-		b.l.Error("Failed to upsert alias",
+		b.l.Error("failed to upsert alias",
 			zap.String("alias", string(indexID)),
 			zap.String("collection", collectionName),
 			zap.Error(err),
@@ -101,7 +101,7 @@ func (b *BaseAPI[indexDocument, returnType]) pruneOldCollections(ctx context.Con
 	// Step 1: Retrieve all collections
 	collections, err := b.client.Collections().Retrieve(ctx)
 	if err != nil {
-		b.l.Error("Failed to retrieve collections", zap.Error(err))
+		b.l.Error("failed to retrieve collections", zap.Error(err))
 		return err
 	}
 
@@ -123,9 +123,9 @@ func (b *BaseAPI[indexDocument, returnType]) pruneOldCollections(ctx context.Con
 		for _, col := range toDelete {
 			_, err := b.client.Collection(col).Delete(ctx)
 			if err != nil {
-				b.l.Error("Failed to delete collection", zap.String("collection", col), zap.Error(err))
+				b.l.Error("failed to delete collection", zap.String("collection", col), zap.Error(err))
 			} else {
-				b.l.Info("Deleted old collection", zap.String("collection", col))
+				b.l.Info("deleted old collection", zap.String("collection", col))
 			}
 		}
 	}
@@ -137,7 +137,7 @@ func (b *BaseAPI[indexDocument, returnType]) pruneOldCollections(ctx context.Con
 func (b *BaseAPI[indexDocument, returnType]) fetchExistingCollections(ctx context.Context) (map[string]bool, error) {
 	collections, err := b.client.Collections().Retrieve(ctx)
 	if err != nil {
-		b.l.Error("Failed to retrieve collections", zap.Error(err))
+		b.l.Error("failed to retrieve collections", zap.Error(err))
 		return nil, err
 	}
 
@@ -158,7 +158,7 @@ func (b *BaseAPI[indexDocument, returnType]) createCollectionIfNotExists(ctx con
 	}
 
 	if existingCollections[collectionName] {
-		b.l.Info("Collection already exists, skipping creation", zap.String("collection", collectionName))
+		b.l.Info("collection already exists, skipping creation", zap.String("collection", collectionName))
 		return nil
 	}
 
@@ -166,10 +166,10 @@ func (b *BaseAPI[indexDocument, returnType]) createCollectionIfNotExists(ctx con
 	schema.Name = collectionName
 	_, err = b.client.Collections().Create(ctx, schema)
 	if err != nil {
-		b.l.Error("Failed to create collection", zap.String("collection", collectionName), zap.Error(err))
+		b.l.Error("failed to create collection", zap.String("collection", collectionName), zap.Error(err))
 		return err
 	}
 
-	b.l.Info("Created new collection", zap.String("collection", collectionName))
+	b.l.Info("created new collection", zap.String("collection", collectionName))
 	return nil
 }
