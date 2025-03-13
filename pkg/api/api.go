@@ -16,13 +16,15 @@ import (
 
 const defaultSearchPresetName = "default"
 
-type BaseAPI[indexDocument any, returnType any] struct {
-	l           *zap.Logger
-	client      *typesense.Client
-	collections map[pkgx.IndexID]*api.CollectionSchema
-	preset      *api.PresetUpsertSchema
+type DocumentConverter[indexDocument any, returnType any] func(indexDocument) returnType
 
-	revisionID pkgx.RevisionID
+type BaseAPI[indexDocument any, returnType any] struct {
+	l                 *zap.Logger
+	client            *typesense.Client
+	collections       map[pkgx.IndexID]*api.CollectionSchema
+	preset            *api.PresetUpsertSchema
+	revisionID        pkgx.RevisionID
+	documentConverter DocumentConverter[indexDocument, returnType]
 }
 
 func NewBaseAPI[indexDocument any, returnType any](
@@ -30,12 +32,14 @@ func NewBaseAPI[indexDocument any, returnType any](
 	client *typesense.Client,
 	collections map[pkgx.IndexID]*api.CollectionSchema,
 	preset *api.PresetUpsertSchema,
+	documentConverter DocumentConverter[indexDocument, returnType],
 ) *BaseAPI[indexDocument, returnType] {
 	return &BaseAPI[indexDocument, returnType]{
-		l:           l,
-		client:      client,
-		collections: collections,
-		preset:      preset,
+		l:                 l,
+		client:            client,
+		collections:       collections,
+		preset:            preset,
+		documentConverter: documentConverter,
 	}
 }
 
@@ -281,8 +285,8 @@ func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 	return b.ExpertSearch(ctx, index, parameters)
 }
 
-// ExpertSearch will perform a search operation on the given index
-// it will return the documents, scores, and totalResults
+// ExpertSearch performs a search operation on the given index
+// It returns the converted documents, scores, and totalResults
 func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 	ctx context.Context,
 	indexID pkgx.IndexID,
@@ -299,6 +303,7 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 		b.l.Error("failed to perform search", zap.String("index", collectionName), zap.Error(err))
 		return nil, nil, 0, err
 	}
+
 	// Extract totalResults from the search response
 	totalResults := *searchResponse.Found
 
@@ -326,19 +331,24 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 			continue
 		}
 
-		// Convert hit to JSON and then unmarshal into returnType
+		// Convert raw document (map) to indexDocument struct
 		hitJSON, err := json.Marshal(docMap)
 		if err != nil {
 			b.l.Warn("failed to marshal document to JSON", zap.String("index", collectionName), zap.Error(err))
 			continue
 		}
-		var doc returnType
-		if err := json.Unmarshal(hitJSON, &doc); err != nil {
-			b.l.Warn("failed to unmarshal JSON into returnType", zap.String("index", collectionName), zap.Error(err))
+
+		var rawDoc indexDocument
+		if err := json.Unmarshal(hitJSON, &rawDoc); err != nil {
+			b.l.Warn("failed to unmarshal JSON into indexDocument", zap.String("index", collectionName), zap.Error(err))
 			continue
 		}
 
-		results[i] = doc
+		// Convert the raw document using documentConverter
+		convertedDoc := b.documentConverter(rawDoc)
+		results[i] = convertedDoc
+
+		// Extract search score
 		index := 0
 		if hit.TextMatchInfo != nil && hit.TextMatchInfo.Score != nil {
 			if score, err := strconv.Atoi(*hit.TextMatchInfo.Score); err == nil {
