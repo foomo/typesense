@@ -329,12 +329,12 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 		// Convert hit to JSON and then unmarshal into returnType
 		hitJSON, err := json.Marshal(docMap)
 		if err != nil {
-			b.l.Warn("failed to unmarshal search result", zap.String("index", collectionName), zap.Error(err))
+			b.l.Warn("failed to marshal document to JSON", zap.String("index", collectionName), zap.Error(err))
 			continue
 		}
 		var doc returnType
 		if err := json.Unmarshal(hitJSON, &doc); err != nil {
-			b.l.Warn("failed to unmarshal search result", zap.String("index", collectionName), zap.Error(err))
+			b.l.Warn("failed to unmarshal JSON into returnType", zap.String("index", collectionName), zap.Error(err))
 			continue
 		}
 
