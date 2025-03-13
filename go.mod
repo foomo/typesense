@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/foomo/contentserver v1.11.2
-	github.com/typesense/typesense-go/v3 v3.0.0
+	github.com/typesense/typesense-go/v3 v3.1.0
 	go.uber.org/zap v1.27.0
 )
 
