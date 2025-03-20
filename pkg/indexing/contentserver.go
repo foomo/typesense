@@ -3,7 +3,6 @@ package typesenseindexing
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	contentserverclient "github.com/foomo/contentserver/client"
@@ -16,23 +15,20 @@ type ContentServer[indexDocument any] struct {
 	l                     *zap.Logger
 	contentserverClient   *contentserverclient.Client
 	documentProviderFuncs map[pkgx.DocumentType]pkgx.DocumentProviderFunc[indexDocument]
-	supportedMimeTypes    []string
-	restrictedPaths       []string
+	supportedMimeTypes    map[string][]string // key: mime type, value: list of restricted paths
 }
 
 func NewContentServer[indexDocument any](
 	l *zap.Logger,
 	client *contentserverclient.Client,
 	documentProviderFuncs map[pkgx.DocumentType]pkgx.DocumentProviderFunc[indexDocument],
-	supportedMimeTypes []string,
-	restrictedPaths []string,
+	supportedMimeTypes map[string][]string,
 ) *ContentServer[indexDocument] {
 	return &ContentServer[indexDocument]{
 		l:                     l,
 		contentserverClient:   client,
 		documentProviderFuncs: documentProviderFuncs,
 		supportedMimeTypes:    supportedMimeTypes,
-		restrictedPaths:       restrictedPaths,
 	}
 }
 
@@ -73,12 +69,27 @@ func (c ContentServer[indexDocument]) Provide(
 	return documents, nil
 }
 
-func (c ContentServer[indexDocument]) isRestrictedPath(path string) bool {
-	for _, restricted := range c.restrictedPaths {
+func (c ContentServer[indexDocument]) shouldSkipPath(mimeType, path string) bool {
+	restrictedPaths, exists := c.supportedMimeTypes[mimeType]
+
+	// MimeType is not supported
+	if !exists {
+		return true
+	}
+
+	// MimeType is supported but no restrictions are defined
+	if len(restrictedPaths) == 0 {
+		return false
+	}
+
+	// Check if path is restricted
+	for _, restricted := range restrictedPaths {
 		if strings.HasPrefix(path, restricted) {
 			return true
 		}
 	}
+
+	// Path is not restricted
 	return false
 }
 
@@ -108,18 +119,19 @@ func (c ContentServer[indexDocument]) getDocumentIDsByIndexID(
 	nodeMap := createFlatRepoNodeMap(rootRepoNode, map[string]*content.RepoNode{})
 	documentInfos := make([]pkgx.DocumentInfo, 0, len(nodeMap))
 	for _, repoNode := range nodeMap {
-		// filter out restricted paths
-		if c.isRestrictedPath(repoNode.URI) {
-			c.l.Warn("Skipping document due to restricted path", zap.String("path", repoNode.URI))
+		// If the MIME type is unsupported OR path is restricted, skip it
+		if c.shouldSkipPath(repoNode.MimeType, repoNode.URI) {
+			c.l.Warn("Skipping document due to filter rule",
+				zap.String("path", repoNode.URI),
+				zap.String("mimeType", repoNode.MimeType),
+			)
 			continue
 		}
 
-		if slices.Contains(c.supportedMimeTypes, repoNode.MimeType) {
-			documentInfos = append(documentInfos, pkgx.DocumentInfo{
-				DocumentType: pkgx.DocumentType(repoNode.MimeType),
-				DocumentID:   pkgx.DocumentID(repoNode.ID),
-			})
-		}
+		documentInfos = append(documentInfos, pkgx.DocumentInfo{
+			DocumentType: pkgx.DocumentType(repoNode.MimeType),
+			DocumentID:   pkgx.DocumentID(repoNode.ID),
+		})
 	}
 
 	return documentInfos, nil
