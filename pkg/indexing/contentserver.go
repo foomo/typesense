@@ -108,6 +108,12 @@ func (c ContentServer[indexDocument]) getDocumentIDsByIndexID(
 	nodeMap := createFlatRepoNodeMap(rootRepoNode, map[string]*content.RepoNode{})
 	documentInfos := make([]pkgx.DocumentInfo, 0, len(nodeMap))
 	for _, repoNode := range nodeMap {
+		// filter out restricted paths
+		if c.isRestrictedPath(repoNode.URI) {
+			c.l.Warn("Skipping document due to restricted path", zap.String("path", repoNode.URI))
+			continue
+		}
+
 		if slices.Contains(c.supportedMimeTypes, repoNode.MimeType) {
 			documentInfos = append(documentInfos, pkgx.DocumentInfo{
 				DocumentType: pkgx.DocumentType(repoNode.MimeType),
@@ -150,15 +156,13 @@ func (c ContentServer[indexDocument]) fetchURLsByDocumentIDs(
 		return nil, err
 	}
 
-	// Filter out restricted paths
-	filteredURIs := make(map[pkgx.DocumentID]string)
-	for docID, url := range uriMap {
-		if c.isRestrictedPath(url) {
-			c.l.Warn("skipping restricted path", zap.String("path", url))
-			continue
-		}
-		filteredURIs[pkgx.DocumentID(docID)] = url
-	}
+	return convertMapStringToDocumentID(uriMap), nil
+}
 
-	return filteredURIs, nil
+func convertMapStringToDocumentID(input map[string]string) map[pkgx.DocumentID]string {
+	output := make(map[pkgx.DocumentID]string, len(input))
+	for key, value := range input {
+		output[pkgx.DocumentID(key)] = value
+	}
+	return output
 }
