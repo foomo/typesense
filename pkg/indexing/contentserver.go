@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	contentserverclient "github.com/foomo/contentserver/client"
 	"github.com/foomo/contentserver/content"
@@ -16,6 +17,7 @@ type ContentServer[indexDocument any] struct {
 	contentserverClient   *contentserverclient.Client
 	documentProviderFuncs map[pkgx.DocumentType]pkgx.DocumentProviderFunc[indexDocument]
 	supportedMimeTypes    []string
+	restrictedPaths       []string
 }
 
 func NewContentServer[indexDocument any](
@@ -23,12 +25,14 @@ func NewContentServer[indexDocument any](
 	client *contentserverclient.Client,
 	documentProviderFuncs map[pkgx.DocumentType]pkgx.DocumentProviderFunc[indexDocument],
 	supportedMimeTypes []string,
+	restrictedPaths []string,
 ) *ContentServer[indexDocument] {
 	return &ContentServer[indexDocument]{
 		l:                     l,
 		contentserverClient:   client,
 		documentProviderFuncs: documentProviderFuncs,
 		supportedMimeTypes:    supportedMimeTypes,
+		restrictedPaths:       restrictedPaths,
 	}
 }
 
@@ -67,6 +71,15 @@ func (c ContentServer[indexDocument]) Provide(
 		}
 	}
 	return documents, nil
+}
+
+func (c ContentServer[indexDocument]) isRestrictedPath(path string) bool {
+	for _, restricted := range c.restrictedPaths {
+		if strings.HasPrefix(path, restricted) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c ContentServer[indexDocument]) ProvidePaged(
@@ -137,13 +150,15 @@ func (c ContentServer[indexDocument]) fetchURLsByDocumentIDs(
 		return nil, err
 	}
 
-	return convertMapStringToDocumentID(uriMap), nil
-}
-
-func convertMapStringToDocumentID(input map[string]string) map[pkgx.DocumentID]string {
-	output := make(map[pkgx.DocumentID]string, len(input))
-	for key, value := range input {
-		output[pkgx.DocumentID(key)] = value
+	// Filter out restricted paths
+	filteredURIs := make(map[pkgx.DocumentID]string)
+	for docID, url := range uriMap {
+		if c.isRestrictedPath(url) {
+			c.l.Warn("skipping restricted path", zap.String("path", url))
+			continue
+		}
+		filteredURIs[pkgx.DocumentID(docID)] = url
 	}
-	return output
+
+	return filteredURIs, nil
 }
