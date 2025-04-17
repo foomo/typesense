@@ -21,7 +21,6 @@ func buildSearchParams(
 	filterBy map[string][]string,
 	page, perPage int,
 	sortBy string,
-	queryBy string,
 ) *api.SearchCollectionParams {
 	parameters := &api.SearchCollectionParams{}
 	parameters.Q = pointer.String(q)
@@ -32,12 +31,6 @@ func buildSearchParams(
 	parameters.PerPage = pointer.Int(perPage)
 	if sortBy != "" {
 		parameters.SortBy = pointer.String(sortBy)
-	}
-
-	if queryBy != "" {
-		parameters.QueryBy = pointer.String(queryBy)
-	} else {
-		parameters.QueryBy = pointer.String("title")
 	}
 
 	return parameters
