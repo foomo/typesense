@@ -23,7 +23,7 @@ type API[indexDocument any, returnType any] interface {
 		q string,
 		filterBy map[string][]string,
 		page, perPage int,
-		sortBy string,
+		preset *api.PresetUpsertSchema,
 	) ([]returnType, Scores, int, error)
 	ExpertSearch(ctx context.Context, index IndexID, parameters *api.SearchCollectionParams) ([]returnType, Scores, int, error)
 	Healthz(ctx context.Context) error

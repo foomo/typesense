@@ -14,15 +14,12 @@ import (
 	"go.uber.org/zap"
 )
 
-const defaultSearchPresetName = "default"
-
 type DocumentConverter[indexDocument any, returnType any] func(indexDocument) returnType
 
 type BaseAPI[indexDocument any, returnType any] struct {
 	l                 *zap.Logger
 	client            *typesense.Client
 	collections       map[pkgx.IndexID]*api.CollectionSchema
-	preset            *api.PresetUpsertSchema
 	revisionID        pkgx.RevisionID
 	documentConverter DocumentConverter[indexDocument, returnType]
 }
@@ -31,14 +28,12 @@ func NewBaseAPI[indexDocument any, returnType any](
 	l *zap.Logger,
 	client *typesense.Client,
 	collections map[pkgx.IndexID]*api.CollectionSchema,
-	preset *api.PresetUpsertSchema,
 	documentConverter DocumentConverter[indexDocument, returnType],
 ) *BaseAPI[indexDocument, returnType] {
 	return &BaseAPI[indexDocument, returnType]{
 		l:                 l,
 		client:            client,
 		collections:       collections,
-		preset:            preset,
 		documentConverter: documentConverter,
 	}
 }
@@ -84,7 +79,6 @@ func (b *BaseAPI[indexDocument, returnType]) Indices() ([]pkgx.IndexID, error) {
 //	   The revision ID is a timestamp in the format "YYYY-MM-DD-HH". If multiple collections are available,
 //	   the latest revision ID can be identified by the latest timestamp value.
 //
-// Additionally, ensure that the configured search preset is present.
 // The system is considered valid if there is one alias for each collection and the collections
 // are correctly linked to their respective aliases.
 // The function sets the revisionID that is currently linked to the aliases internally.
@@ -152,15 +146,6 @@ func (b *BaseAPI[indexDocument, returnType]) Initialize(ctx context.Context) (pk
 
 	// Step 5: Set the latest revision ID and return
 	b.revisionID = newRevisionID
-
-	// Step 6: Ensure search preset is present
-	if b.preset != nil {
-		_, err := b.client.Presets().Upsert(ctx, defaultSearchPresetName, b.preset)
-		if err != nil {
-			b.l.Error("failed to upsert search preset", zap.Error(err))
-			return "", err
-		}
-	}
 
 	b.l.Info("initialization completed", zap.String("revisionID", string(b.revisionID)))
 
@@ -276,11 +261,37 @@ func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 	q string,
 	filterBy map[string][]string,
 	page, perPage int,
-	sortBy string,
+	preset *api.PresetUpsertSchema,
 ) ([]returnType, pkgx.Scores, int, error) {
-	// Call buildSearchParams but also set QueryBy explicitly
-	parameters := buildSearchParams(q, filterBy, page, perPage, sortBy)
-	parameters.QueryBy = pointer.String("title")
+	// Build base params
+	parameters := buildSearchParams(q, filterBy, page, perPage)
+
+	// Apply preset values if present
+	if preset != nil {
+		searchParams, err := preset.Value.AsSearchParameters()
+		if err != nil {
+			b.l.Warn("failed to unmarshal preset search parameters", zap.Error(err))
+		} else {
+			if searchParams.QueryBy != nil {
+				parameters.QueryBy = searchParams.QueryBy
+			}
+			if searchParams.QueryByWeights != nil {
+				parameters.QueryByWeights = searchParams.QueryByWeights
+			}
+			if searchParams.SortBy != nil {
+				parameters.SortBy = searchParams.SortBy
+			}
+			if searchParams.Prefix != nil {
+				parameters.Prefix = searchParams.Prefix
+			}
+			if searchParams.NumTypos != nil {
+				parameters.NumTypos = searchParams.NumTypos
+			}
+			if searchParams.DropTokensThreshold != nil {
+				parameters.DropTokensThreshold = searchParams.DropTokensThreshold
+			}
+		}
+	}
 
 	return b.ExpertSearch(ctx, index, parameters)
 }

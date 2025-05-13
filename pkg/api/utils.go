@@ -13,24 +13,21 @@ import (
 	"go.uber.org/zap"
 )
 
-// buildSearchParams will return the search collection parameters
-// this is meant as a utility function to create the search collection parameters
-// for the typesense search API without any knowledge of the typesense API
+// buildSearchParams returns the basic search collection parameters,
+// without any knowledge of the Typesense schema (fields, weights, etc.)
 func buildSearchParams(
 	q string,
 	filterBy map[string][]string,
 	page, perPage int,
-	sortBy string,
 ) *api.SearchCollectionParams {
-	parameters := &api.SearchCollectionParams{}
-	parameters.Q = pointer.String(q)
+	parameters := &api.SearchCollectionParams{
+		Q:       pointer.String(q),
+		Page:    pointer.Int(page),
+		PerPage: pointer.Int(perPage),
+	}
+
 	if filterByString := formatFilterQuery(filterBy); filterByString != "" {
 		parameters.FilterBy = pointer.String(filterByString)
-	}
-	parameters.Page = pointer.Int(page)
-	parameters.PerPage = pointer.Int(perPage)
-	if sortBy != "" {
-		parameters.SortBy = pointer.String(sortBy)
 	}
 
 	return parameters
