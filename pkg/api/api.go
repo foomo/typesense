@@ -277,11 +277,9 @@ func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 	filterBy map[string][]string,
 	page, perPage int,
 	sortBy string,
+	queryBy string,
 ) ([]returnType, pkgx.Scores, int, error) {
-	// Call buildSearchParams but also set QueryBy explicitly
-	parameters := buildSearchParams(q, filterBy, page, perPage, sortBy)
-	parameters.QueryBy = pointer.String("title")
-
+	parameters := buildSearchParams(q, filterBy, page, perPage, sortBy, queryBy)
 	return b.ExpertSearch(ctx, index, parameters)
 }
 
