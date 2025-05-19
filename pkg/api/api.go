@@ -14,15 +14,13 @@ import (
 	"go.uber.org/zap"
 )
 
-const defaultSearchPresetName = "default"
-
 type DocumentConverter[indexDocument any, returnType any] func(indexDocument) returnType
 
 type BaseAPI[indexDocument any, returnType any] struct {
 	l                 *zap.Logger
 	client            *typesense.Client
 	collections       map[pkgx.IndexID]*api.CollectionSchema
-	preset            *api.PresetUpsertSchema
+	presets           map[string]*api.PresetUpsertSchema
 	revisionID        pkgx.RevisionID
 	documentConverter DocumentConverter[indexDocument, returnType]
 }
@@ -31,14 +29,14 @@ func NewBaseAPI[indexDocument any, returnType any](
 	l *zap.Logger,
 	client *typesense.Client,
 	collections map[pkgx.IndexID]*api.CollectionSchema,
-	preset *api.PresetUpsertSchema,
+	presets map[string]*api.PresetUpsertSchema,
 	documentConverter DocumentConverter[indexDocument, returnType],
 ) *BaseAPI[indexDocument, returnType] {
 	return &BaseAPI[indexDocument, returnType]{
 		l:                 l,
 		client:            client,
 		collections:       collections,
-		preset:            preset,
+		presets:           presets,
 		documentConverter: documentConverter,
 	}
 }
@@ -153,11 +151,11 @@ func (b *BaseAPI[indexDocument, returnType]) Initialize(ctx context.Context) (pk
 	// Step 5: Set the latest revision ID and return
 	b.revisionID = newRevisionID
 
-	// Step 6: Ensure search preset is present
-	if b.preset != nil {
-		_, err := b.client.Presets().Upsert(ctx, defaultSearchPresetName, b.preset)
+	// Step 6: ensure search presets are present
+	for name, preset := range b.presets {
+		_, err := b.client.Presets().Upsert(ctx, name, preset)
 		if err != nil {
-			b.l.Error("failed to upsert search preset", zap.Error(err))
+			b.l.Error("failed to upsert preset", zap.String("name", name), zap.Error(err))
 			return "", err
 		}
 	}
