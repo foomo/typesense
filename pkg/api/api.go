@@ -266,19 +266,14 @@ func (b *BaseAPI[indexDocument, returnType]) RevertRevision(ctx context.Context,
 	return nil
 }
 
-// SimpleSearch will perform a search operation on the given index
-// it will return the documents and the scores
+// SimpleSearch will perform a search operation on the given index using basic SearchParameters input
 func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 	ctx context.Context,
 	index pkgx.IndexID,
-	q string,
-	filterBy map[string][]string,
-	page, perPage int,
-	sortBy string,
-	queryBy string,
+	parameters *pkgx.SearchParameters,
 ) ([]returnType, pkgx.Scores, int, error) {
-	parameters := buildSearchParams(q, filterBy, page, perPage, sortBy, queryBy)
-	return b.ExpertSearch(ctx, index, parameters)
+	searchParams := buildSearchParams(parameters)
+	return b.ExpertSearch(ctx, index, searchParams)
 }
 
 // ExpertSearch performs a search operation on the given index

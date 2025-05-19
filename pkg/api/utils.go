@@ -13,54 +13,35 @@ import (
 	"go.uber.org/zap"
 )
 
+const defaultSearchPresetName = "default"
+
 // buildSearchParams will return the search collection parameters
-// this is meant as a utility function to create the search collection parameters
-// for the typesense search API without any knowledge of the typesense API
 func buildSearchParams(
-	q string,
-	filterBy map[string][]string,
-	page, perPage int,
-	sortBy string,
-	queryBy string,
+	params *pkgx.SearchParameters,
 ) *api.SearchCollectionParams {
-	parameters := &api.SearchCollectionParams{}
-	parameters.Q = pointer.String(q)
-	if filterByString := formatFilterQuery(filterBy); filterByString != "" {
-		parameters.FilterBy = pointer.String(filterByString)
-	}
-	parameters.Page = pointer.Int(page)
-	parameters.PerPage = pointer.Int(perPage)
-	if sortBy != "" {
-		parameters.SortBy = pointer.String(sortBy)
-	}
-	if queryBy != "" {
-		parameters.QueryBy = pointer.String(queryBy)
+	if params.Page < 1 {
+		params.Page = 1
 	}
 
-	return parameters
-}
-
-func formatFilterQuery(filterBy map[string][]string) string {
-	if filterBy == nil {
-		return ""
+	searchParams := &api.SearchCollectionParams{
+		Page: pointer.Int(params.Page),
 	}
 
-	var filterClauses []string
-	for key, values := range filterBy {
-		if len(values) == 1 {
-			// Single value → Use `:=` operator
-			filterClauses = append(filterClauses, fmt.Sprintf("%s:=\"%s\"", key, values[0]))
-		} else {
-			// Multiple values → Use `["val1","val2"]` array syntax
-			formattedValues := []string{}
-			for _, v := range values {
-				formattedValues = append(formattedValues, fmt.Sprintf("\"%s\"", v))
-			}
-			filterClauses = append(filterClauses, fmt.Sprintf("%s:[%s]", key, strings.Join(formattedValues, ",")))
-		}
+	if params.PresetName != "" {
+		searchParams.Preset = pointer.String(params.PresetName)
+	} else {
+		searchParams.Preset = pointer.String(defaultSearchPresetName)
 	}
 
-	return strings.Join(filterClauses, " && ")
+	if params.Query != "" {
+		searchParams.Q = pointer.String(params.Query)
+	}
+
+	if params.Modify != nil {
+		params.Modify(searchParams)
+	}
+
+	return searchParams
 }
 
 func (b *BaseAPI[indexDocument, returnType]) generateRevisionID() pkgx.RevisionID {
