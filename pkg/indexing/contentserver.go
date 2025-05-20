@@ -3,7 +3,8 @@ package typesenseindexing
 import (
 	"context"
 	"fmt"
-	"strings"
+
+	"slices"
 
 	contentserverclient "github.com/foomo/contentserver/client"
 	"github.com/foomo/contentserver/content"
@@ -15,14 +16,14 @@ type ContentServer[indexDocument any] struct {
 	l                     *zap.Logger
 	contentserverClient   *contentserverclient.Client
 	documentProviderFuncs map[pkgx.DocumentType]pkgx.DocumentProviderFunc[indexDocument]
-	supportedMimeTypes    map[string][]string // key: mime type, value: list of restricted paths
+	supportedMimeTypes    []string
 }
 
 func NewContentServer[indexDocument any](
 	l *zap.Logger,
 	client *contentserverclient.Client,
 	documentProviderFuncs map[pkgx.DocumentType]pkgx.DocumentProviderFunc[indexDocument],
-	supportedMimeTypes map[string][]string,
+	supportedMimeTypes []string,
 ) *ContentServer[indexDocument] {
 	return &ContentServer[indexDocument]{
 		l:                     l,
@@ -69,30 +70,6 @@ func (c ContentServer[indexDocument]) Provide(
 	return documents, nil
 }
 
-func (c ContentServer[indexDocument]) shouldSkipPath(mimeType, path string) bool {
-	restrictedPaths, exists := c.supportedMimeTypes[mimeType]
-
-	// MimeType is not supported
-	if !exists {
-		return true
-	}
-
-	// MimeType is supported but no restrictions are defined
-	if len(restrictedPaths) == 0 {
-		return false
-	}
-
-	// Check if path is restricted
-	for _, restricted := range restrictedPaths {
-		if strings.HasPrefix(path, restricted) {
-			return true
-		}
-	}
-
-	// Path is not restricted
-	return false
-}
-
 func (c ContentServer[indexDocument]) ProvidePaged(
 	ctx context.Context,
 	indexID pkgx.IndexID,
@@ -119,11 +96,11 @@ func (c ContentServer[indexDocument]) getDocumentIDsByIndexID(
 	nodeMap := createFlatRepoNodeMap(rootRepoNode, map[string]*content.RepoNode{})
 	documentInfos := make([]pkgx.DocumentInfo, 0, len(nodeMap))
 	for _, repoNode := range nodeMap {
-		// If the MIME type is unsupported OR path is restricted, skip it
-		if c.shouldSkipPath(repoNode.MimeType, repoNode.URI) {
-			c.l.Warn("Skipping document due to filter rule",
+		if repoNode.Hidden || !slices.Contains(c.supportedMimeTypes, repoNode.MimeType) {
+			c.l.Warn("Skipping document indexing",
 				zap.String("path", repoNode.URI),
 				zap.String("mimeType", repoNode.MimeType),
+				zap.Bool("hidden", repoNode.Hidden),
 			)
 			continue
 		}
