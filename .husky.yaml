@@ -1,4 +1,4 @@
- hooks:
+hooks:
   pre-commit:
     - golangci-lint run --fast-only
     - husky lint-staged

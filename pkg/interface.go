@@ -17,14 +17,7 @@ type API[indexDocument any, returnType any] interface {
 	Initialize(ctx context.Context) (RevisionID, error)
 
 	// perform a search operation on the given index
-	SimpleSearch(
-		ctx context.Context,
-		index IndexID,
-		q string,
-		filterBy map[string][]string,
-		page, perPage int,
-		sortBy string,
-	) ([]returnType, Scores, int, error)
+	SimpleSearch(ctx context.Context, index IndexID, parameters *SearchParameters) ([]returnType, Scores, int, error)
 	ExpertSearch(ctx context.Context, index IndexID, parameters *api.SearchCollectionParams) ([]returnType, Scores, int, error)
 	Healthz(ctx context.Context) error
 	Indices() ([]IndexID, error)

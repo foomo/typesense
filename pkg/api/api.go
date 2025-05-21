@@ -14,28 +14,30 @@ import (
 	"go.uber.org/zap"
 )
 
-const defaultSearchPresetName = "default"
+type DocumentConverter[indexDocument any, returnType any] func(indexDocument) returnType
 
 type BaseAPI[indexDocument any, returnType any] struct {
-	l           *zap.Logger
-	client      *typesense.Client
-	collections map[pkgx.IndexID]*api.CollectionSchema
-	preset      *api.PresetUpsertSchema
-
-	revisionID pkgx.RevisionID
+	l                 *zap.Logger
+	client            *typesense.Client
+	collections       map[pkgx.IndexID]*api.CollectionSchema
+	presets           map[string]*api.PresetUpsertSchema
+	revisionID        pkgx.RevisionID
+	documentConverter DocumentConverter[indexDocument, returnType]
 }
 
 func NewBaseAPI[indexDocument any, returnType any](
 	l *zap.Logger,
 	client *typesense.Client,
 	collections map[pkgx.IndexID]*api.CollectionSchema,
-	preset *api.PresetUpsertSchema,
+	presets map[string]*api.PresetUpsertSchema,
+	documentConverter DocumentConverter[indexDocument, returnType],
 ) *BaseAPI[indexDocument, returnType] {
 	return &BaseAPI[indexDocument, returnType]{
-		l:           l,
-		client:      client,
-		collections: collections,
-		preset:      preset,
+		l:                 l,
+		client:            client,
+		collections:       collections,
+		presets:           presets,
+		documentConverter: documentConverter,
 	}
 }
 
@@ -149,11 +151,11 @@ func (b *BaseAPI[indexDocument, returnType]) Initialize(ctx context.Context) (pk
 	// Step 5: Set the latest revision ID and return
 	b.revisionID = newRevisionID
 
-	// Step 6: Ensure search preset is present
-	if b.preset != nil {
-		_, err := b.client.Presets().Upsert(ctx, defaultSearchPresetName, b.preset)
+	// Step 6: ensure search presets are present
+	for name, preset := range b.presets {
+		_, err := b.client.Presets().Upsert(ctx, name, preset)
 		if err != nil {
-			b.l.Error("failed to upsert search preset", zap.Error(err))
+			b.l.Error("failed to upsert preset", zap.String("name", name), zap.Error(err))
 			return "", err
 		}
 	}
@@ -264,25 +266,18 @@ func (b *BaseAPI[indexDocument, returnType]) RevertRevision(ctx context.Context,
 	return nil
 }
 
-// SimpleSearch will perform a search operation on the given index
-// it will return the documents and the scores
+// SimpleSearch will perform a search operation on the given index using basic SearchParameters input
 func (b *BaseAPI[indexDocument, returnType]) SimpleSearch(
 	ctx context.Context,
 	index pkgx.IndexID,
-	q string,
-	filterBy map[string][]string,
-	page, perPage int,
-	sortBy string,
+	parameters *pkgx.SearchParameters,
 ) ([]returnType, pkgx.Scores, int, error) {
-	// Call buildSearchParams but also set QueryBy explicitly
-	parameters := buildSearchParams(q, filterBy, page, perPage, sortBy)
-	parameters.QueryBy = pointer.String("title")
-
-	return b.ExpertSearch(ctx, index, parameters)
+	searchParams := buildSearchParams(parameters)
+	return b.ExpertSearch(ctx, index, searchParams)
 }
 
-// ExpertSearch will perform a search operation on the given index
-// it will return the documents, scores, and totalResults
+// ExpertSearch performs a search operation on the given index
+// It returns the converted documents, scores, and totalResults
 func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 	ctx context.Context,
 	indexID pkgx.IndexID,
@@ -299,6 +294,7 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 		b.l.Error("failed to perform search", zap.String("index", collectionName), zap.Error(err))
 		return nil, nil, 0, err
 	}
+
 	// Extract totalResults from the search response
 	totalResults := *searchResponse.Found
 
@@ -326,19 +322,24 @@ func (b *BaseAPI[indexDocument, returnType]) ExpertSearch(
 			continue
 		}
 
-		// Convert hit to JSON and then unmarshal into returnType
+		// Convert raw document (map) to indexDocument struct
 		hitJSON, err := json.Marshal(docMap)
 		if err != nil {
 			b.l.Warn("failed to marshal document to JSON", zap.String("index", collectionName), zap.Error(err))
 			continue
 		}
-		var doc returnType
-		if err := json.Unmarshal(hitJSON, &doc); err != nil {
-			b.l.Warn("failed to unmarshal JSON into returnType", zap.String("index", collectionName), zap.Error(err))
+
+		var rawDoc indexDocument
+		if err := json.Unmarshal(hitJSON, &rawDoc); err != nil {
+			b.l.Warn("failed to unmarshal JSON into indexDocument", zap.String("index", collectionName), zap.Error(err))
 			continue
 		}
 
-		results[i] = doc
+		// Convert the raw document using documentConverter
+		convertedDoc := b.documentConverter(rawDoc)
+		results[i] = convertedDoc
+
+		// Extract search score
 		index := 0
 		if hit.TextMatchInfo != nil && hit.TextMatchInfo.Score != nil {
 			if score, err := strconv.Atoi(*hit.TextMatchInfo.Score); err == nil {

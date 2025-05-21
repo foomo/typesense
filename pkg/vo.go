@@ -1,6 +1,10 @@
 package typesense
 
-import "context"
+import (
+	"context"
+
+	"github.com/typesense/typesense-go/v3/typesense/api"
+)
 
 type RevisionID string
 type Query string
@@ -25,4 +29,11 @@ type DocumentProviderFunc[indexDocument any] func(
 type DocumentInfo struct {
 	DocumentType DocumentType
 	DocumentID   DocumentID
+}
+
+type SearchParameters struct {
+	Query      string
+	Page       int
+	PresetName string
+	Modify     func(params *api.SearchCollectionParams)
 }
